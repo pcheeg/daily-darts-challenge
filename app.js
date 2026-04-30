@@ -21,6 +21,7 @@ let elapsedMs = 0;
 let timerInterval = null;
 let categoryTimes = {};
 let shareMessage = "";
+let feedbackText = "";
 
 function $(id) {
   return document.getElementById(id);
@@ -96,7 +97,7 @@ function renderHeader(title = `Challenge #${challenge.dayNumber}`) {
         <p class="eyebrow">Daily Darts</p>
         <h1>${title}</h1>
       </div>
-      <img class="logo" src="icon-192.png?v=7" alt="Daily Darts logo">
+      <img class="logo" src="icon-192.png?v=9" alt="Daily Darts logo">
     </header>
   `;
 }
@@ -117,6 +118,7 @@ function renderStartScreen() {
     ${renderHeader("Challenge")}
     <section class="card">
       <p class="muted">Same challenge for everyone today</p>
+      <p class="streak">🔥 ${calculateStats(getRuns()).currentStreak} day streak</p>
 
       <div class="challenge-list">
         ${challenge.tasks.map((task, index) => `
@@ -136,7 +138,7 @@ function renderStartScreen() {
 }
 
 function renderCompletedToday(todayRun) {
-  const message = buildShareMessage(todayRun.dayNumber, todayRun.totalTimeMs);
+  const message = buildShareMessage(todayRun.dayNumber, todayRun.totalTimeMs, todayRun.categoryTimes);
 
   return `
     ${renderHeader(`Challenge #${challenge.dayNumber}`)}
@@ -166,6 +168,8 @@ function renderPlaying() {
       <span class="pill">${isPracticeMode ? "Practice Mode" : `Challenge #${challenge.dayNumber}`}</span>
       <div class="timer" id="timer">${formatTime(elapsedMs)}</div>
       <p class="muted">Time elapsed</p>
+      <p class="streak">🔥 ${calculateStats(getRuns()).currentStreak} day streak</p>
+      ${feedbackText ? `<div class="feedback">${feedbackText}</div>` : ""}
     </section>
 
     <p class="progress-text">Challenge ${currentTaskIndex + 1} of 4</p>
@@ -292,6 +296,7 @@ function startChallenge(practice = false) {
   currentTaskIndex = 0;
   elapsedMs = 0;
   categoryTimes = {};
+  feedbackText = "";
   startedAt = Date.now();
   taskStartedAt = startedAt;
 
@@ -314,12 +319,20 @@ function completeTask() {
   taskStartedAt = now;
 
   if (currentTaskIndex === challenge.tasks.length - 1) {
+    feedbackText = "";
+    triggerConfetti();
     finishChallenge();
     return;
   }
 
+  feedbackText = "Nice 👌";
   currentTaskIndex += 1;
   safeRender();
+
+  setTimeout(() => {
+    feedbackText = "";
+    if (mode === "playing") safeRender();
+  }, 650);
 }
 
 function finishChallenge() {
@@ -334,7 +347,7 @@ function finishChallenge() {
       categoryTimes
     });
 
-    shareMessage = buildShareMessage(challenge.dayNumber, elapsedMs);
+    shareMessage = buildShareMessage(challenge.dayNumber, elapsedMs, categoryTimes);
   }
 
   mode = "finished";
@@ -538,13 +551,15 @@ function clearStats() {
   safeRender();
 }
 
-function buildShareMessage(dayNumber, timeMs) {
-  return `I completed Daily Darts Challenge #${dayNumber} in ${formatTime(timeMs)} 🎯\n\nCan you beat me?\n\n${APP_URL}`;
+function buildShareMessage(dayNumber, timeMs, splitTimes = {}) {
+  const split = (key) => typeof splitTimes[key] === "number" ? formatTime(splitTimes[key]) : "--:--";
+
+  return `Daily Darts Challenge #${dayNumber} 🎯\n⏱ ${formatTime(timeMs)}\n\nSingles: ${split("singles")}\nDouble: ${split("double")}\nCheckout: ${split("checkout")}\nExact score: ${split("exactScore")}\n\nCan you beat me?\n\n${APP_URL}`;
 }
 
 async function shareCurrentResult() {
   const todayRun = getTodayRun();
-  const message = shareMessage || (todayRun ? buildShareMessage(todayRun.dayNumber, todayRun.totalTimeMs) : "");
+  const message = shareMessage || (todayRun ? buildShareMessage(todayRun.dayNumber, todayRun.totalTimeMs, todayRun.categoryTimes) : "");
 
   if (!message) return;
 
@@ -564,7 +579,7 @@ async function shareCurrentResult() {
 
 async function copyCurrentResult() {
   const todayRun = getTodayRun();
-  const message = shareMessage || (todayRun ? buildShareMessage(todayRun.dayNumber, todayRun.totalTimeMs) : "");
+  const message = shareMessage || (todayRun ? buildShareMessage(todayRun.dayNumber, todayRun.totalTimeMs, todayRun.categoryTimes) : "");
 
   if (!message) return;
   await copyText(message);
@@ -576,6 +591,21 @@ async function copyText(text) {
     alert("Copied");
   } catch {
     alert("Could not copy");
+  }
+}
+
+
+function triggerConfetti() {
+  for (let i = 0; i < 46; i++) {
+    const piece = document.createElement("div");
+    piece.className = "confetti";
+    piece.style.left = `${Math.random() * 100}%`;
+    piece.style.background = `hsl(${Math.random() * 360}, 85%, 62%)`;
+    piece.style.animationDelay = `${Math.random() * 0.16}s`;
+    piece.style.transform = `rotate(${Math.random() * 360}deg)`;
+    document.body.appendChild(piece);
+
+    setTimeout(() => piece.remove(), 1300);
   }
 }
 
