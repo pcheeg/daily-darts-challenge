@@ -40,7 +40,7 @@ button {
   width: min(100%, 460px);
   min-height: 100dvh;
   margin: 0 auto;
-  padding: max(22px, env(safe-area-inset-top)) 20px calc(104px + env(safe-area-inset-bottom));
+  padding: max(22px, env(safe-area-inset-top)) 20px calc(180px + env(safe-area-inset-bottom));
 }
 
 .header {
@@ -165,6 +165,7 @@ h2 {
 .primary {
   background: linear-gradient(135deg, var(--blue), var(--blue2));
   box-shadow: 0 18px 42px rgba(35,136,255,0.28);
+  margin-bottom: 24px;
 }
 
 .secondary {
