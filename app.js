@@ -97,7 +97,7 @@ function renderHeader(title = `Challenge #${challenge.dayNumber}`) {
         <p class="eyebrow">Daily Darts</p>
         <h1>${title}</h1>
       </div>
-      <img class="logo" src="icon-192.png?v=9" alt="Daily Darts logo">
+      <img class="logo" src="icon-192.png?v=10" alt="Daily Darts logo">
     </header>
   `;
 }
@@ -170,6 +170,7 @@ function renderPlaying() {
       <p class="muted">Time elapsed</p>
       <p class="streak">🔥 ${calculateStats(getRuns()).currentStreak} day streak</p>
       ${feedbackText ? `<div class="feedback">${feedbackText}</div>` : ""}
+      <button class="primary top-hit" id="hitBtn">Hit</button>
     </section>
 
     <p class="progress-text">Challenge ${currentTaskIndex + 1} of 4</p>
@@ -197,7 +198,6 @@ function renderPlaying() {
       `).join("")}
     </section>
 
-    <button class="primary" id="hitBtn">Hit</button>
   `;
 }
 

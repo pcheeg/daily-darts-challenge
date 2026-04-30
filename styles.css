@@ -539,3 +539,211 @@ h2 {
     padding: 14px 18px;
   }
 }
+
+
+/* v10 compact play layout */
+.app-shell {
+  padding: max(10px, env(safe-area-inset-top)) 20px calc(96px + env(safe-area-inset-bottom));
+}
+
+.header {
+  margin: 4px 0 10px;
+}
+
+.eyebrow {
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+
+h1 {
+  font-size: 32px;
+  line-height: 0.95;
+}
+
+.logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+}
+
+.timer-wrap {
+  margin: 4px 0 8px;
+}
+
+.pill {
+  padding: 6px 11px;
+  font-size: 12px;
+}
+
+.timer {
+  margin: 6px 0 0;
+  font-size: 56px;
+  line-height: 0.9;
+}
+
+.timer-wrap .muted {
+  margin: 4px 0 0;
+  font-size: 13px;
+}
+
+.streak {
+  margin: 5px 0 0;
+  font-size: 16px;
+}
+
+.feedback {
+  margin-top: 4px;
+  font-size: 16px;
+}
+
+.top-hit {
+  margin: 10px auto 0;
+  max-width: 260px;
+  padding: 13px 18px;
+  border-radius: 18px;
+  display: block;
+}
+
+.progress-text {
+  margin: 12px 0 7px;
+  font-size: 15px;
+}
+
+.dots {
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.dot {
+  width: 16px;
+  height: 16px;
+}
+
+.card {
+  border-radius: 22px;
+  padding: 15px;
+}
+
+.active-card {
+  margin-bottom: 10px;
+}
+
+.target {
+  display: none;
+}
+
+.task-label {
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.task-title {
+  font-size: 22px;
+  line-height: 1.05;
+  margin-bottom: 10px;
+}
+
+.task-value {
+  font-size: 34px;
+  line-height: 1;
+}
+
+.single-boxes {
+  gap: 7px;
+}
+
+.single-box {
+  min-width: 55px;
+  padding: 9px 10px;
+  border-radius: 14px;
+}
+
+.locked-list {
+  gap: 7px;
+  margin-bottom: 0;
+}
+
+.locked-row {
+  height: 42px;
+  padding: 0 10px;
+  border-radius: 15px;
+}
+
+.num {
+  width: 30px;
+  height: 30px;
+  flex-basis: 30px;
+  font-size: 14px;
+}
+
+.nav {
+  height: 64px;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  border-radius: 24px;
+}
+
+.nav button {
+  font-size: 16px;
+}
+
+.result-time {
+  font-size: 62px;
+}
+
+/* Smaller phones / browser chrome visible */
+@media (max-height: 760px) {
+  .app-shell {
+    padding-top: max(8px, env(safe-area-inset-top));
+  }
+
+  .header {
+    margin-bottom: 6px;
+  }
+
+  h1 {
+    font-size: 28px;
+  }
+
+  .logo {
+    width: 42px;
+    height: 42px;
+  }
+
+  .timer {
+    font-size: 46px;
+  }
+
+  .top-hit {
+    margin-top: 8px;
+    padding: 12px 16px;
+  }
+
+  .progress-text {
+    margin: 9px 0 6px;
+  }
+
+  .card {
+    padding: 13px;
+  }
+
+  .task-title {
+    font-size: 19px;
+  }
+
+  .task-value {
+    font-size: 28px;
+  }
+
+  .single-box {
+    min-width: 48px;
+    padding: 8px 9px;
+  }
+
+  .locked-row {
+    height: 38px;
+  }
+
+  .nav {
+    height: 60px;
+  }
+}
