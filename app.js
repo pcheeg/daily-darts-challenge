@@ -10,7 +10,9 @@ const CATEGORIES = [
 ];
 
 let screen = "play";
-let mode = "ready";
+let mode = "ready"; // ready | playing | finished
+let isPracticeMode = false;
+
 let challenge = generateDailyChallenge();
 let currentTaskIndex = 0;
 let startedAt = null;
@@ -20,8 +22,31 @@ let timerInterval = null;
 let categoryTimes = {};
 let shareMessage = "";
 
+function $(id) {
+  return document.getElementById(id);
+}
+
+function safeRender() {
+  try {
+    render();
+  } catch (error) {
+    console.error(error);
+    const app = $("app");
+    if (app) {
+      app.innerHTML = `
+        <section class="card" style="margin-top:40px">
+          <p class="eyebrow">Daily Darts</p>
+          <h1>Something went wrong</h1>
+          <p class="muted">Please clear site data or refresh the page.</p>
+          <button class="danger" onclick="localStorage.clear(); location.reload();">Reset app data</button>
+        </section>
+      `;
+    }
+  }
+}
+
 function render() {
-  const app = document.getElementById("app");
+  const app = $("app");
 
   app.innerHTML = `
     ${screen === "play" ? renderPlay() : ""}
@@ -34,28 +59,32 @@ function render() {
 }
 
 function bindEvents() {
-  const startBtn = document.getElementById("startBtn");
-  if (startBtn) startBtn.onclick = startChallenge;
+  const startBtn = $("startBtn");
+  if (startBtn) startBtn.onclick = () => startChallenge(false);
 
-  const hitBtn = document.getElementById("hitBtn");
+  const practiceBtn = $("practiceBtn");
+  if (practiceBtn) practiceBtn.onclick = () => startChallenge(true);
+
+  const hitBtn = $("hitBtn");
   if (hitBtn) hitBtn.onclick = completeTask;
 
-  const shareBtn = document.getElementById("shareBtn");
-  if (shareBtn) shareBtn.onclick = shareResult;
+  const shareBtn = $("shareBtn");
+  if (shareBtn) shareBtn.onclick = shareCurrentResult;
 
-  const copyBtn = document.getElementById("copyBtn");
-  if (copyBtn) copyBtn.onclick = copyResult;
+  const copyBtn = $("copyBtn");
+  if (copyBtn) copyBtn.onclick = copyCurrentResult;
 
-  const tryAgainBtn = document.getElementById("tryAgainBtn");
-  if (tryAgainBtn) tryAgainBtn.onclick = resetChallenge;
+  const tryAgainBtn = $("tryAgainBtn");
+  if (tryAgainBtn) tryAgainBtn.onclick = () => startChallenge(true);
 
-  const clearBtn = document.getElementById("clearBtn");
+  const clearBtn = $("clearBtn");
   if (clearBtn) clearBtn.onclick = clearStats;
 
   document.querySelectorAll("[data-screen]").forEach((button) => {
     button.onclick = () => {
       screen = button.dataset.screen;
-      render();
+      mode = mode === "playing" ? "playing" : "ready";
+      safeRender();
     };
   });
 }
@@ -67,53 +96,23 @@ function renderHeader(title = `Challenge #${challenge.dayNumber}`) {
         <p class="eyebrow">Daily Darts</p>
         <h1>${title}</h1>
       </div>
-      <img class="logo" src="icon-192.png?v=4" alt="Daily Darts logo">
+      <img class="logo" src="icon-192.png?v=7" alt="Daily Darts logo">
     </header>
   `;
 }
 
 function renderPlay() {
+  const todayRun = getTodayRun();
+
+  if (mode === "playing") return renderPlaying();
   if (mode === "finished") return renderFinished();
 
-  if (mode === "playing") {
-    const task = challenge.tasks[currentTaskIndex];
+  if (todayRun) return renderCompletedToday(todayRun);
 
-    return `
-      ${renderHeader(`Challenge #${challenge.dayNumber}`)}
-      <section class="timer-wrap">
-        <span class="pill">Challenge #${challenge.dayNumber}</span>
-        <div class="timer" id="timer">${formatTime(elapsedMs)}</div>
-        <p class="muted">Time elapsed</p>
-      </section>
+  return renderStartScreen();
+}
 
-      <p class="progress-text">Challenge ${currentTaskIndex + 1} of 4</p>
-      <div class="dots">
-        ${challenge.tasks.map((_, index) => `
-          <span class="dot ${index < currentTaskIndex ? "done" : ""} ${index === currentTaskIndex ? "active" : ""}"></span>
-        `).join("")}
-      </div>
-
-      <section class="card active-card">
-        <div class="target">🎯</div>
-        <p class="task-label">${task.label}</p>
-        <div class="task-title">${task.title}</div>
-        <div class="task-value">${formatTaskValue(task)}</div>
-      </section>
-
-      <section class="locked-list">
-        ${challenge.tasks.slice(currentTaskIndex + 1).map((task, i) => `
-          <div class="locked-row">
-            <span class="num">${currentTaskIndex + i + 2}</span>
-            <div class="locked-text">${task.title}</div>
-            <div>🔒</div>
-          </div>
-        `).join("")}
-      </section>
-
-      <button class="primary" id="hitBtn">Hit</button>
-    `;
-  }
-
+function renderStartScreen() {
   return `
     ${renderHeader("Challenge")}
     <section class="card">
@@ -124,8 +123,8 @@ function renderPlay() {
           <div class="challenge-row ${index === 0 ? "active" : ""}">
             <span class="num">${index + 1}</span>
             <div>
-              <p class="row-title">${task.title}</p>
-              <p class="row-value ${index === 0 ? "" : "blur"}">${index === 0 ? task.value : "Blurred until unlocked"}</p>
+              <p class="row-title">${escapeHtml(task.title)}</p>
+              <p class="row-value ${index === 0 ? "" : "blur"}">${index === 0 ? escapeHtml(task.value) : "Blurred until unlocked"}</p>
             </div>
           </div>
         `).join("")}
@@ -136,19 +135,88 @@ function renderPlay() {
   `;
 }
 
-function renderFinished() {
+function renderCompletedToday(todayRun) {
+  const message = buildShareMessage(todayRun.dayNumber, todayRun.totalTimeMs);
+
   return `
     ${renderHeader(`Challenge #${challenge.dayNumber}`)}
     <section class="card result">
       <div class="tick">✓</div>
-      <p class="eyebrow">Challenge completed</p>
-      <div class="result-time">${formatTime(elapsedMs)}</div>
-      <div class="share-box">${shareMessage}</div>
+      <p class="eyebrow">Completed today</p>
+      <div class="result-time">${formatTime(todayRun.totalTimeMs)}</div>
+      <div class="share-box">${escapeHtml(message)}</div>
+
       <div class="button-row">
         <button class="secondary" id="shareBtn">Share</button>
         <button class="secondary" id="copyBtn">Copy</button>
       </div>
-      <button class="secondary" id="tryAgainBtn">Try again</button>
+
+      <p class="muted">Come back tomorrow for the next daily challenge.</p>
+      <button class="secondary" id="practiceBtn">Practice mode</button>
+    </section>
+  `;
+}
+
+function renderPlaying() {
+  const task = challenge.tasks[currentTaskIndex];
+
+  return `
+    ${renderHeader(isPracticeMode ? "Practice" : `Challenge #${challenge.dayNumber}`)}
+    <section class="timer-wrap">
+      <span class="pill">${isPracticeMode ? "Practice Mode" : `Challenge #${challenge.dayNumber}`}</span>
+      <div class="timer" id="timer">${formatTime(elapsedMs)}</div>
+      <p class="muted">Time elapsed</p>
+    </section>
+
+    <p class="progress-text">Challenge ${currentTaskIndex + 1} of 4</p>
+
+    <div class="dots">
+      ${challenge.tasks.map((_, index) => `
+        <span class="dot ${index < currentTaskIndex ? "done" : ""} ${index === currentTaskIndex ? "active" : ""}"></span>
+      `).join("")}
+    </div>
+
+    <section class="card active-card">
+      <div class="target">🎯</div>
+      <p class="task-label">${escapeHtml(task.label)}</p>
+      <div class="task-title">${escapeHtml(task.title)}</div>
+      <div class="task-value">${formatTaskValue(task)}</div>
+    </section>
+
+    <section class="locked-list">
+      ${challenge.tasks.slice(currentTaskIndex + 1).map((task, i) => `
+        <div class="locked-row">
+          <span class="num">${currentTaskIndex + i + 2}</span>
+          <div class="locked-text">${escapeHtml(task.title)}</div>
+          <div>🔒</div>
+        </div>
+      `).join("")}
+    </section>
+
+    <button class="primary" id="hitBtn">Hit</button>
+  `;
+}
+
+function renderFinished() {
+  const title = isPracticeMode ? "Practice completed" : "Challenge completed";
+
+  return `
+    ${renderHeader(isPracticeMode ? "Practice" : `Challenge #${challenge.dayNumber}`)}
+    <section class="card result">
+      <div class="tick">✓</div>
+      <p class="eyebrow">${title}</p>
+      <div class="result-time">${formatTime(elapsedMs)}</div>
+
+      ${isPracticeMode
+        ? `<p class="muted">Practice runs do not save to stats.</p>`
+        : `<div class="share-box">${escapeHtml(shareMessage)}</div>
+           <div class="button-row">
+             <button class="secondary" id="shareBtn">Share</button>
+             <button class="secondary" id="copyBtn">Copy</button>
+           </div>`
+      }
+
+      <button class="secondary" id="tryAgainBtn">${isPracticeMode ? "Practice again" : "Practice mode"}</button>
     </section>
   `;
 }
@@ -169,6 +237,7 @@ function renderStats() {
     <section class="card">
       <p class="eyebrow">Best category</p>
       <h2>${stats.bestCategory}</h2>
+
       ${CATEGORIES.map((category) => `
         <div class="category-row">
           <span>${category.label}</span>
@@ -200,6 +269,7 @@ function renderSettings() {
         <li>Challenge 3: checkout the number shown.</li>
         <li>Challenge 4: score exactly the number shown.</li>
         <li>Upcoming challenges stay blurred until unlocked.</li>
+        <li>Practice mode only appears after the daily challenge is complete and does not save stats.</li>
       </ul>
     </section>
   `;
@@ -215,8 +285,10 @@ function renderNav() {
   `;
 }
 
-function startChallenge() {
+function startChallenge(practice = false) {
+  isPracticeMode = practice;
   mode = "playing";
+  screen = "play";
   currentTaskIndex = 0;
   elapsedMs = 0;
   categoryTimes = {};
@@ -224,18 +296,20 @@ function startChallenge() {
   taskStartedAt = startedAt;
 
   clearInterval(timerInterval);
+
   timerInterval = setInterval(() => {
     elapsedMs = Date.now() - startedAt;
-    const timer = document.getElementById("timer");
+    const timer = $("timer");
     if (timer) timer.textContent = formatTime(elapsedMs);
   }, 250);
 
-  render();
+  safeRender();
 }
 
 function completeTask() {
   const now = Date.now();
   const task = challenge.tasks[currentTaskIndex];
+
   categoryTimes[task.key] = now - taskStartedAt;
   taskStartedAt = now;
 
@@ -245,41 +319,35 @@ function completeTask() {
   }
 
   currentTaskIndex += 1;
-  render();
+  safeRender();
 }
 
 function finishChallenge() {
   clearInterval(timerInterval);
   elapsedMs = Date.now() - startedAt;
 
-  saveRun({
-    date: todayKey(),
-    dayNumber: challenge.dayNumber,
-    totalTimeMs: elapsedMs,
-    categoryTimes
-  });
+  if (!isPracticeMode) {
+    saveRun({
+      date: todayKey(),
+      dayNumber: challenge.dayNumber,
+      totalTimeMs: elapsedMs,
+      categoryTimes
+    });
 
-  shareMessage = `I completed Daily Darts Challenge #${challenge.dayNumber} in ${formatTime(elapsedMs)} 🎯\n\nCan you beat me?\n\n${APP_URL}`;
+    shareMessage = buildShareMessage(challenge.dayNumber, elapsedMs);
+  }
+
   mode = "finished";
-  render();
-}
-
-function resetChallenge() {
-  clearInterval(timerInterval);
-  mode = "ready";
-  currentTaskIndex = 0;
-  elapsedMs = 0;
-  categoryTimes = {};
-  render();
+  safeRender();
 }
 
 function formatTaskValue(task) {
-  if (task.key !== "singles") return task.value;
+  if (task.key !== "singles") return escapeHtml(task.value);
 
   return `
     <div class="single-boxes">
       ${task.value.split(" → ").map((part, index, arr) => `
-        <span class="single-box">${part}</span>${index < arr.length - 1 ? "<span>→</span>" : ""}
+        <span class="single-box">${escapeHtml(part)}</span>${index < arr.length - 1 ? "<span>→</span>" : ""}
       `).join("")}
     </div>
   `;
@@ -291,18 +359,22 @@ function generateDailyChallenge(date = new Date()) {
   const dayIndex = (dayNumber - 1) % 7;
 
   const singleSequences = [];
+
   for (let start = 1; start <= 18; start++) {
     singleSequences.push(`S${start} → S${start + 1} → S${start + 2}`);
   }
+
   for (let start = 20; start >= 3; start--) {
     singleSequences.push(`S${start} → S${start - 1} → S${start - 2}`);
   }
 
   const doubles = Array.from({ length: 20 }, (_, i) => i + 1);
+
   const checkouts = [
     ...Array.from({ length: 19 }, (_, i) => i * 2 + 3),
     ...Array.from({ length: 59 }, (_, i) => i + 41)
   ];
+
   const exactScores = Array.from({ length: 40 }, (_, i) => i + 61);
 
   return {
@@ -323,7 +395,7 @@ function getDayNumber(date = new Date()) {
 }
 
 function getWeeklyPick(options, weekNumber, dayIndex, offset) {
-  return shuffleSeeded(options, weekNumber * 1000 + offset)[dayIndex];
+  return shuffleSeeded(options, weekNumber * 1000 + offset)[dayIndex % options.length];
 }
 
 function shuffleSeeded(array, seed) {
@@ -338,12 +410,30 @@ function seededRandom(seed) {
   return x - Math.floor(x);
 }
 
+function getTodayRun() {
+  return getRuns().find((run) => run.date === todayKey()) || null;
+}
+
 function getRuns() {
   try {
-    return JSON.parse(localStorage.getItem(STATS_KEY)) || [];
+    const stored = JSON.parse(localStorage.getItem(STATS_KEY));
+
+    if (Array.isArray(stored)) return stored.filter(isValidRun);
+    if (stored && Array.isArray(stored.runs)) return stored.runs.filter(isValidRun);
+
+    return [];
   } catch {
     return [];
   }
+}
+
+function isValidRun(run) {
+  return run
+    && typeof run.date === "string"
+    && typeof run.dayNumber === "number"
+    && typeof run.totalTimeMs === "number"
+    && run.categoryTimes
+    && typeof run.categoryTimes === "object";
 }
 
 function saveRun(run) {
@@ -365,35 +455,43 @@ function calculateStats(runs) {
       currentStreak: "0",
       longestStreak: "0",
       bestCategory: "--",
-      categoryAverages: Object.fromEntries(CATEGORIES.map(c => [c.key, "--:--"]))
+      categoryAverages: Object.fromEntries(CATEGORIES.map((category) => [category.key, "--:--"]))
     };
   }
 
-  const totalTimes = runs.map(r => r.totalTimeMs);
+  const totalTimes = runs.map((run) => run.totalTimeMs);
   const best = Math.min(...totalTimes);
-  const avg = totalTimes.reduce((a, b) => a + b, 0) / totalTimes.length;
+  const average = totalTimes.reduce((sum, value) => sum + value, 0) / totalTimes.length;
 
   const categoryAverages = {};
   let bestCategory = null;
 
   CATEGORIES.forEach((category) => {
-    const values = runs.map(r => r.categoryTimes?.[category.key]).filter(v => typeof v === "number");
+    const values = runs
+      .map((run) => run.categoryTimes?.[category.key])
+      .filter((value) => typeof value === "number");
+
     if (!values.length) {
       categoryAverages[category.key] = "--:--";
       return;
     }
-    const categoryAvg = values.reduce((a, b) => a + b, 0) / values.length;
-    categoryAverages[category.key] = formatTime(categoryAvg);
-    if (!bestCategory || categoryAvg < bestCategory.avg) {
-      bestCategory = { label: category.label, avg: categoryAvg };
+
+    const categoryAverage = values.reduce((sum, value) => sum + value, 0) / values.length;
+    categoryAverages[category.key] = formatTime(categoryAverage);
+
+    if (!bestCategory || categoryAverage < bestCategory.average) {
+      bestCategory = {
+        label: category.label,
+        average: categoryAverage
+      };
     }
   });
 
-  const streaks = calculateStreaks(runs.map(r => r.date));
+  const streaks = calculateStreaks(runs.map((run) => run.date));
 
   return {
     bestTime: formatTime(best),
-    averageTime: formatTime(avg),
+    averageTime: formatTime(average),
     currentStreak: String(streaks.current),
     longestStreak: String(streaks.longest),
     bestCategory: bestCategory ? bestCategory.label : "--",
@@ -403,22 +501,28 @@ function calculateStats(runs) {
 
 function calculateStreaks(dates) {
   const unique = [...new Set(dates)].sort();
+
+  if (!unique.length) {
+    return { current: 0, longest: 0 };
+  }
+
   let longest = 0;
   let run = 0;
-  let prev = null;
+  let previous = null;
 
   unique.forEach((date) => {
-    if (prev && daysBetween(prev, date) === 1) run += 1;
+    if (previous && daysBetween(previous, date) === 1) run += 1;
     else run = 1;
+
     longest = Math.max(longest, run);
-    prev = date;
+    previous = date;
   });
 
   let current = 0;
-  const set = new Set(unique);
+  const dateSet = new Set(unique);
   let cursor = todayKey();
 
-  while (set.has(cursor)) {
+  while (dateSet.has(cursor)) {
     current += 1;
     cursor = addDays(cursor, -1);
   }
@@ -429,22 +533,46 @@ function calculateStreaks(dates) {
 function clearStats() {
   if (!confirm("Clear all stats on this device?")) return;
   localStorage.removeItem(STATS_KEY);
-  render();
+  mode = "ready";
+  isPracticeMode = false;
+  safeRender();
 }
 
-async function shareResult() {
+function buildShareMessage(dayNumber, timeMs) {
+  return `I completed Daily Darts Challenge #${dayNumber} in ${formatTime(timeMs)} 🎯\n\nCan you beat me?\n\n${APP_URL}`;
+}
+
+async function shareCurrentResult() {
+  const todayRun = getTodayRun();
+  const message = shareMessage || (todayRun ? buildShareMessage(todayRun.dayNumber, todayRun.totalTimeMs) : "");
+
+  if (!message) return;
+
   if (navigator.share) {
     try {
-      await navigator.share({ title: "Daily Darts Challenge", text: shareMessage, url: APP_URL });
+      await navigator.share({
+        title: "Daily Darts Challenge",
+        text: message,
+        url: APP_URL
+      });
       return;
     } catch {}
   }
-  copyResult();
+
+  await copyText(message);
 }
 
-async function copyResult() {
+async function copyCurrentResult() {
+  const todayRun = getTodayRun();
+  const message = shareMessage || (todayRun ? buildShareMessage(todayRun.dayNumber, todayRun.totalTimeMs) : "");
+
+  if (!message) return;
+  await copyText(message);
+}
+
+async function copyText(text) {
   try {
-    await navigator.clipboard.writeText(shareMessage);
+    await navigator.clipboard.writeText(text);
     alert("Copied");
   } catch {
     alert("Could not copy");
@@ -452,22 +580,23 @@ async function copyResult() {
 }
 
 function formatTime(ms) {
-  const total = Math.floor(ms / 1000);
-  const minutes = String(Math.floor(total / 60)).padStart(2, "0");
-  const seconds = String(total % 60).padStart(2, "0");
+  const safeMs = Number.isFinite(ms) ? ms : 0;
+  const totalSeconds = Math.floor(safeMs / 1000);
+  const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
+  const seconds = String(totalSeconds % 60).padStart(2, "0");
   return `${minutes}:${seconds}`;
 }
 
 function todayKey(date = new Date()) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function parseLocalDate(value) {
-  const [y, m, d] = value.split("-").map(Number);
-  return new Date(y, m - 1, d);
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
 }
 
 function addDays(dateString, days) {
@@ -480,9 +609,22 @@ function daysBetween(a, b) {
   return Math.round((parseLocalDate(b) - parseLocalDate(a)) / 86400000);
 }
 
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.getRegistrations?.().then((regs) => regs.forEach((reg) => reg.update()));
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js?v=4").catch(() => {}));
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
-render();
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", async () => {
+    try {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map((registration) => registration.unregister()));
+    } catch {}
+  });
+}
+
+safeRender();

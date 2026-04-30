@@ -2,7 +2,7 @@
   "name": "Daily Darts Challenge",
   "short_name": "Daily Darts",
   "description": "A daily trust-based darts challenge timer.",
-  "start_url": "./",
+  "start_url": "./?v=7",
   "scope": "./",
   "display": "standalone",
   "background_color": "#07101d",

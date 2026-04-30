@@ -13,7 +13,6 @@
   --blue2: #29b7ff;
   --green: #22c55e;
   --red: #ef4444;
-  --gold: #efc15a;
 }
 
 html,
@@ -66,6 +65,10 @@ h1 {
   font-size: 44px;
   line-height: 0.95;
   letter-spacing: -0.06em;
+}
+
+h2 {
+  margin-top: 0;
 }
 
 .logo {
@@ -167,6 +170,7 @@ h1 {
 .secondary {
   background: rgba(255,255,255,0.08);
   border: 1px solid var(--line);
+  margin-top: 12px;
 }
 
 .danger {
@@ -343,7 +347,10 @@ h1 {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
-  margin-bottom: 12px;
+}
+
+.button-row .secondary {
+  margin-top: 0;
 }
 
 .stats-grid {
